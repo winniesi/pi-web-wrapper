@@ -40,6 +40,18 @@ func serverIsUp(timeout: TimeInterval = 1.0) -> Bool {
     return up
 }
 
+// 新版 macOS 窗口内容默认延伸到标题栏下方；这个容器把 WebView 固定在
+// contentLayoutRect（标题栏以下的区域），否则网页顶部被标题栏盖住、标题栏也拖不动
+final class ContentLayoutView: NSView {
+    weak var content: NSView?
+    override func layout() {
+        super.layout()
+        guard let content else { return }
+        let rect = window?.contentLayoutRect ?? bounds
+        content.frame = rect.isEmpty ? bounds : rect
+    }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, NSWindowDelegate {
     var window: NSWindow!
     var webView: WKWebView!
@@ -75,9 +87,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
             backing: .buffered, defer: false)
         window.title = "Pi Web"
         window.minSize = NSSize(width: 640, height: 400)
+        let container = ContentLayoutView(frame: NSRect(x: 0, y: 0, width: 1280, height: 820))
         let wv = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
         wv.navigationDelegate = self
-        window.contentView = wv
+        container.content = wv
+        container.addSubview(wv)
+        window.contentView = container
         webView = wv
         window.delegate = self
         window.setFrameAutosaveName("PiWebMainWindow")
