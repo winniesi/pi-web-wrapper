@@ -83,7 +83,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     func buildWindow() {
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1280, height: 820),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullScreen],
+            // 不能把 .fullScreen 放进初始 styleMask：新系统会从此把窗口当作
+            // 全屏态窗口，导致无法最小化、进出全屏崩溃；全屏授权用 collectionBehavior
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered, defer: false)
         window.title = "Pi Web"
         window.minSize = NSSize(width: 640, height: 400)
@@ -92,8 +94,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         wv.navigationDelegate = self
         container.content = wv
         container.addSubview(wv)
-        window.contentView = container
+        // 必须用 contentViewController：新系统的全屏转换要求窗口有 content controller，
+        // 否则退出全屏时抛 'Must have content controller' 异常直接崩溃
+        let vc = NSViewController()
+        vc.view = container
+        window.contentViewController = vc
         webView = wv
+        window.collectionBehavior = [.fullScreenPrimary]
         window.delegate = self
         window.setFrameAutosaveName("PiWebMainWindow")
         window.center()
@@ -250,6 +257,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         let winRoot = NSMenuItem()
         main.addItem(winRoot)
         let winMenu = NSMenu(title: "窗口")
+        winMenu.addItem(NSMenuItem(title: "缩放",
+                                   action: #selector(NSWindow.zoom(_:)),
+                                   keyEquivalent: ""))
         winMenu.addItem(NSMenuItem(title: "最小化",
                                    action: #selector(NSWindow.performMiniaturize(_:)),
                                    keyEquivalent: "m"))
